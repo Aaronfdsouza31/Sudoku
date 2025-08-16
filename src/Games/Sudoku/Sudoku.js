@@ -375,7 +375,6 @@ export default function Sudoku() {
   }
   function NumPanel() {
     function handleNumClick(n) {
-      // Safe check to prevent errors
       if (
         Array.isArray(selected) &&
         Array.isArray(original) &&
@@ -507,6 +506,12 @@ export default function Sudoku() {
           )) : <li>No scores yet</li>}
         </ol>
       </div>
+      
+      {/* DEBUG: show selected cell coordinates */}
+      <div style={{position: 'fixed', bottom: 10, left: 10, backgroundColor: '#eee', padding: 10, zIndex: 9999}}>
+        <strong>Selected Cell:</strong> {JSON.stringify(selected)}
+      </div>
+
       {showPauseModal && (
         <PauseModal
           onResume={handleResumeGame}
