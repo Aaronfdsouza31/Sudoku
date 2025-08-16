@@ -110,7 +110,6 @@ export default function Sudoku() {
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [puzzleSeed, setPuzzleSeed] = useState(null);
 
-  // Timer management
   useEffect(() => {
     if(screen === "play" && !paused) {
       timerRef.current = setInterval(() => setTimer(t => t + 1), 1000);
@@ -120,7 +119,6 @@ export default function Sudoku() {
     return () => clearInterval(timerRef.current);
   }, [screen, paused]);
 
-  // Auto Pause & Resume Modal
   useEffect(() => {
     function handleVisibility() {
       if(screen === "play" && !paused && document.hidden) {
@@ -165,14 +163,11 @@ export default function Sudoku() {
       sessionStorage.removeItem("sudoku_autosave");
     }
   }
-
   function handleResumeWithoutRestore() {
     setPaused(false);
     setShowPauseModal(false);
     sessionStorage.removeItem("sudoku_autosave");
   }
-
-  // Start game
   function startGame(diff) {
     setDifficulty(diff);
     let clues = diff === "Easy" ? 42 : diff === "Medium" ? 34 : 26;
@@ -193,8 +188,6 @@ export default function Sudoku() {
     setShowPauseModal(false);
     sessionStorage.removeItem("sudoku_autosave");
   }
-
-  // Solver
   function solveBoard(grid) {
     for(let r=0;r<9;r++) {
       for(let c=0;c<9;c++) {
@@ -212,8 +205,6 @@ export default function Sudoku() {
     }
     return true;
   }
-
-  // Restart current puzzle
   function handleRestart() {
     setBoard(puzzleSeed.map(row => row.slice()));
     setNotes(emptyNotes());
@@ -225,27 +216,19 @@ export default function Sudoku() {
     setShowPauseModal(false);
     sessionStorage.removeItem("sudoku_autosave");
   }
-
-  // New game same level
   function handleNewGame() {
     startGame(difficulty);
   }
-  
-  // Back to difficulty select
   function handleBack() {
     setScreen("select");
     setPaused(false);
     setShowPauseModal(false);
     sessionStorage.removeItem("sudoku_autosave");
   }
-
-  // Select cell
   function selectCell(r, c) {
     setSelected([r, c]);
     setHighlightNum(null);
   }
-
-  // Handle input for pencil or normal mode
   function handleInput(num) {
     const [r, c] = selected;
     if (r === -1 || c === -1 || original[r][c]) return;
@@ -271,8 +254,6 @@ export default function Sudoku() {
       });
     }
   }
-
-  // Keyboard handling
   useEffect(() => {
     function onKeyDown(e) {
       if (screen !== "play") return;
@@ -305,8 +286,6 @@ export default function Sudoku() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selected, screen, pencil]);
-
-  // Check completion and correctness
   useEffect(() => {
     if (screen === "play" && isComplete() && isCorrect()) {
       clearInterval(timerRef.current);
@@ -314,20 +293,16 @@ export default function Sudoku() {
       setTimeout(() => setScreen("complete"), 1200);
     }
   }, [board]);
-
   function isComplete() {
     return board.every(row => row.every(cell => cell !== ""));
   }
-
   function isCorrect() {
     return JSON.stringify(board) === JSON.stringify(solution);
   }
-
   function formatTime(sec) {
     const m = Math.floor(sec / 60), s = sec % 60;
     return `${m}:${s < 10 ? "0" + s : s}`;
   }
-
   function recordScore(name, t, diff) {
     let scores = getHighScores();
     let newList = [...scores[diff], { name, time: t }].sort((a, b) => a.time - b.time).slice(0, 5);
@@ -335,11 +310,9 @@ export default function Sudoku() {
     setHighScores(scores);
     saveHighScores(scores);
   }
-
   function countNum(n) {
     return board.reduce((acc, r) => acc + r.reduce((a, c) => a + (c === String(n) ? 1 : 0), 0), 0);
   }
-
   function MiniGridPencil({ notes }) {
     const nums = Array.from({ length: 9 }, (_, i) => String(i + 1));
     return (
@@ -350,7 +323,6 @@ export default function Sudoku() {
       </div>
     );
   }
-
   function renderCell(r, c) {
     const v = board[r][c];
     const pencilSet = notes[r][c];
@@ -358,7 +330,6 @@ export default function Sudoku() {
     const isSelected = selected[0] === r && selected[1] === c;
     const isHighlighted = highlightNum && String(v) === String(highlightNum);
     const cellAnim = animateComplete ? { animation: 'bgFlash 0.8s linear alternate infinite' } : {};
-
     return (
       <td
         key={c}
@@ -367,11 +338,15 @@ export default function Sudoku() {
           if (board[r][c]) setHighlightNum(board[r][c]);
         }}
         style={{
-          width: 48,
-          height: 48,
+          width: "11%",
+          height: 0,
+          paddingBottom: "11%",
+          minWidth: "32px",
+          maxWidth: "48px",
+          position: "relative",
           textAlign: "center",
           fontWeight: isClue ? "bold" : "normal",
-          fontSize: v ? 23 : 12,
+          fontSize: v ? "2rem" : "1.1rem",
           cursor: isClue ? "default" : "pointer",
           background:
             isSelected
@@ -383,40 +358,67 @@ export default function Sudoku() {
               : isClue
               ? "#e9e9e9"
               : "white",
-          position: "relative",
           ...cellBorder(r, c),
           ...cellAnim,
-          transition: "background 0.2s"
+          transition: "background 0.2s",
         }}
       >
-        {v ? v : pencilSet.size > 0 && <MiniGridPencil notes={pencilSet} />}
+        <span style={{
+          position: "absolute",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+        }}>
+          {v ? v : pencilSet.size > 0 && <MiniGridPencil notes={pencilSet} />}
+        </span>
       </td>
     );
   }
-
   function NumPanel() {
+    function handleNumClick(n) {
+      if (selected[0] !== -1 && selected[1] !== -1 && !original[selected][selected[1]]) {
+        handleInput(String(n));
+      }
+      setHighlightNum(highlightNum === String(n) ? null : String(n));
+    }
+    // Left-align and align width to grid
     return (
-      <div style={{ display: "flex", margin: "16px auto", justifyContent: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-start",      // left aligned
+          alignItems: "center",
+          gap: "6px",
+          width: "100%",
+          maxWidth: "450px",                 // same maxWidth as table
+          margin: "16px auto",
+        }}
+      >
         {[...Array(9)].map((_, i) => {
           const n = i + 1;
           const done = countNum(n) === 9;
           return (
             <div
               key={n}
-              onClick={() => setHighlightNum(highlightNum === String(n) ? null : String(n))}
+              onClick={() => handleNumClick(n)}
               style={{
-                margin: "0 6px",
-                padding: "7px 16px",
+                padding: "9px 10px",
                 border: highlightNum === String(n) ? "2px solid blue" : "1px solid #bbb",
-                borderRadius: 4,
-                fontSize: 20,
+                borderRadius: 9,
+                fontSize: "19px",
                 fontWeight: "bold",
                 textDecoration: done ? "line-through" : "none",
                 color: highlightNum === String(n) ? "blue" : "#333",
                 background: done ? "#ddeedf" : "#f7f7fa",
                 cursor: done ? "not-allowed" : "pointer",
                 opacity: done ? 0.45 : 1,
-                userSelect: "none"
+                userSelect: "none",
+                minWidth: "32px",
+                minHeight: "32px",
+                maxWidth: "38px",
+                boxSizing: "border-box",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               {n}
@@ -426,7 +428,6 @@ export default function Sudoku() {
       </div>
     );
   }
-
   if (screen === "init") {
     return (
       <div style={ui.container}>
@@ -446,7 +447,6 @@ export default function Sudoku() {
       </div>
     );
   }
-
   if (screen === "select") {
     return (
       <div style={ui.container}>
@@ -458,7 +458,6 @@ export default function Sudoku() {
       </div>
     );
   }
-
   return (
     <div style={ui.container}>
       <style>{`
@@ -470,7 +469,7 @@ export default function Sudoku() {
       <h3 style={{ marginBottom: 4 }}>Name: {name} | Difficulty: {difficulty} | Time: {formatTime(timer)}</h3>
       <NumPanel />
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <table style={{ borderCollapse: "collapse", margin: "auto" }}>
+        <table style={{ borderCollapse: "collapse", margin: "auto", width: "100%", maxWidth: "450px", aspectRatio: "1" }}>
           <tbody>
             {Array.from({ length: 9 }, (_, r) => (
               <tr key={r}>{Array.from({ length: 9 }, (_, c) => renderCell(r, c))}</tr>
@@ -521,7 +520,6 @@ export default function Sudoku() {
     </div>
   );
 }
-
 function PauseModal({ onResume, onResumeWithoutRestore }) {
   return (
     <div style={{
@@ -540,7 +538,6 @@ function PauseModal({ onResume, onResumeWithoutRestore }) {
     </div>
   );
 }
-
 function CompletedDialog({ timer, name, onClose }) {
   return (
     <div style={{
@@ -564,7 +561,6 @@ function CompletedDialog({ timer, name, onClose }) {
     </div>
   );
 }
-
 function HighScoresList({ allScores }) {
   return (
     <div style={{ maxWidth: 400, marginTop: 8, fontSize: 14, color: "#666" }}>
@@ -580,7 +576,6 @@ function HighScoresList({ allScores }) {
     </div>
   );
 }
-
 function cellBorder(r, c) {
   return {
     borderTop: r === 0 ? "2.5px solid #111" : r % 3 === 0 ? "2px solid #222" : "1px solid #bbb",
@@ -589,7 +584,6 @@ function cellBorder(r, c) {
     borderBottom: r === 8 ? "2.5px solid #111" : (r + 1) % 3 === 0 ? "2px solid #222" : "1px solid #bbb"
   };
 }
-
 const ui = {
   container: {
     maxWidth: 670,
