@@ -375,21 +375,28 @@ export default function Sudoku() {
   }
   function NumPanel() {
     function handleNumClick(n) {
-      if (selected[0] !== -1 && selected[1] !== -1 && !original[selected][selected[1]]) {
+      // Safe check to prevent errors
+      if (
+        Array.isArray(selected) &&
+        Array.isArray(original) &&
+        selected[0] >= 0 &&
+        selected[1] >= 0 &&
+        original[selected] &&
+        !original[selected][selected[1]]
+      ) {
         handleInput(String(n));
       }
       setHighlightNum(highlightNum === String(n) ? null : String(n));
     }
-    // Left-align and align width to grid
     return (
       <div
         style={{
           display: "flex",
-          justifyContent: "flex-start",      // left aligned
+          justifyContent: "flex-start",
           alignItems: "center",
           gap: "6px",
           width: "100%",
-          maxWidth: "450px",                 // same maxWidth as table
+          maxWidth: "450px",
           margin: "16px auto",
         }}
       >
