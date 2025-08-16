@@ -1,0 +1,388 @@
+import React, { useState, useEffect, useRef } from "react";
+
+const emptyGrid = () => Array(9).fill(null).map(() => Array(9).fill(""));
+
+function isValid(grid, row, col, val) {
+  if (!val) return true;
+  val = String(val);
+  for (let i = 0; i < 9; ++i)
+    if ((grid[row][i] === val && i !== col) || (grid[i][col] === val && i !== row))
+      return false;
+  const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; ++r)
+    for (let c = bc; c < bc + 3; ++c)
+      if (grid[r][c] === val && (r !== row || c !== col))
+        return false;
+  return true;
+}
+
+function generatePuzzle(clues = 36) {
+  let grid = emptyGrid();
+
+  function fill(idx = 0) {
+    if (idx === 81) return true;
+    const row = Math.floor(idx / 9), col = idx % 9;
+    if (grid[row][col]) return fill(idx + 1);
+    let nums = shuffle([1,2,3,4,5,6,7,8,9]);
+    for (let num of nums) {
+      if (isValid(grid, row, col, num)) {
+        grid[row][col] = String(num);
+        if (fill(idx + 1)) return true;
+        grid[row][col] = "";
+      }
+    }
+    return false;
+  }
+  fill();
+
+  let attempts = 81 - clues;
+  let puzzle = grid.map(r => r.slice());
+  while (attempts > 0) {
+    let r = Math.floor(Math.random()*9);
+    let c = Math.floor(Math.random()*9);
+    if (puzzle[r][c]) {
+      puzzle[r][c] = "";
+      attempts--;
+    }
+  }
+  return puzzle;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    let j = Math.floor(Math.random() * (i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export default function Sudoku() {
+  // Board & Original Clues
+  const [board, setBoard] = useState(emptyGrid());
+  const [original, setOriginal] = useState(emptyGrid());
+
+  // Pencil marks: a 9x9 grid of arrays of candidate numbers
+  const [pencils, setPencils] = useState(Array(9).fill(null).map(() => Array(9).fill(null).map(()=> new Set())));
+
+  // Selected cell and highlighting number
+  const [selected, setSelected] = useState([-1,-1]);
+  const [highlightNum, setHighlightNum] = useState(null);
+
+  // Pencil mode toggle
+  const [pencilMode, setPencilMode] = useState(false);
+
+  // Game status & timer
+  const [difficulty, setDifficulty] = useState("Easy");
+  const [clues, setClues] = useState(36);
+  const [paused, setPaused] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const timerRef = useRef();
+
+  // High Scores stored in localStorage
+  const [scores, setScores] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("sudoku_highscores")) || [];
+    } catch {
+      return [];
+    }
+  });
+  const [nameInput, setNameInput] = useState("");
+  const [showScoreInput, setShowScoreInput] = useState(false);
+
+  // Initialize clues according to difficulty
+  useEffect(() => {
+    let cluesNum = difficulty === "Easy" ? 36 : difficulty === "Medium" ? 30 : 24;
+    setClues(cluesNum);
+  }, [difficulty]);
+
+  // Generate new puzzle when clues change
+  useEffect(() => {
+    const newPuzzle = generatePuzzle(clues);
+    setBoard(newPuzzle.map(r => r.slice()));
+    setOriginal(newPuzzle.map(r => r.slice()));
+    setPencils(Array(9).fill(null).map(() => Array(9).fill(null).map(()=> new Set())));
+    setSelected([-1,-1]);
+    setPaused(false);
+    setSeconds(0);
+    setHighlightNum(null);
+    setShowScoreInput(false);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setSeconds(sec => !paused ? sec+1 : sec);
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [clues]);
+
+  // Cell click handler
+  const handleCellClick = (r,c) => {
+    setSelected([r,c]);
+    setHighlightNum(null); // clear highlight number on board number click
+  }
+
+  // Check if board is fully and correctly solved
+  const isSolved = () => {
+    for (let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        if (!board[r][c] || !isValid(board,r,c,board[r][c]))
+          return false;
+      }
+    }
+    return true;
+  }
+
+  // Key press handler for input and pencil
+  const handleKeyPress = (e) => {
+    const [r,c] = selected;
+    if (r===-1||c===-1||original[r][c]) return;
+
+    if (e.key === "Backspace" || e.key === "Delete" || e.key === "0") {
+      // Clear cell & pencils
+      if (pencilMode) {
+        // Clear all pencil marks at cell
+        setPencils(ps => {
+          const newP = ps.map(row => row.map(cell => new Set(cell)));
+          newP[r][c].clear();
+          return newP;
+        });
+      } else {
+        setBoard(b => {
+          const newB = b.map(row => row.slice());
+          newB[r][c] = "";
+          return newB;
+        });
+      }
+      setHighlightNum(null);
+    }
+    else if ("123456789".includes(e.key)) {
+      if (pencilMode) {
+        const num = e.key;
+        setPencils(ps => {
+          const newP = ps.map(row => row.map(cell => new Set(cell)));
+          if(newP[r][c].has(num)){
+            newP[r][c].delete(num);
+          } else {
+            newP[r][c].add(num);
+          }
+          return newP;
+        });
+      } else {
+        const num = e.key;
+        if (isValid(board,r,c,num)) {
+          setBoard(b => {
+            const newB = b.map(row => row.slice());
+            newB[r][c] = num;
+            return newB;
+          });
+          setPencils(ps => {
+            const newP = ps.map(row => row.map(cell => new Set(cell)));
+            newP[r][c].clear();
+            return newP;
+          });
+          setHighlightNum(num);
+          if (isSolved()) {
+            setPaused(true);
+            setShowScoreInput(true);
+          }
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  });
+
+  // Format timer to MM:SS
+  const formatTime = sec => {
+    const m = Math.floor(sec/60);
+    const s = sec%60;
+    return `${m}:${s<10?"0":""}${s}`;
+  }
+
+  // Get count of how many times a number completed on board
+  const countNumber = (num) => {
+    let count = 0;
+    for (let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        if(board[r][c]===num)
+          count++;
+      }
+    }
+    return count;
+  }
+
+  // Strike out numbers fully placed
+  const isNumberCompleted = (num) => countNumber(num) === 9;
+
+  // Toggle pencil mode button
+  const togglePencilMode = () => setPencilMode(p => !p);
+
+  // Add a new high score
+  const saveScore = () => {
+    if (!nameInput.trim()) return;
+    const newScore = { name: nameInput.trim(), time: seconds };
+    const newScores = [...scores, newScore].sort((a,b)=>a.time-b.time).slice(0, 10); // top 10
+    setScores(newScores);
+    localStorage.setItem("sudoku_highscores", JSON.stringify(newScores));
+    setShowScoreInput(false);
+  }
+
+  // Highlight all cells with a given number
+  const handleNumberClick = (num) => {
+    if(highlightNum === num) setHighlightNum(null);
+    else setHighlightNum(num);
+    setSelected([-1,-1]);
+  };
+
+  // General cell background color with highlights and selection
+  const cellBgColor = (r,c) => {
+    if (selected[0] === r && selected[1] === c) return "#ffa500"; // orange selected
+    if (highlightNum && board[r][c] === highlightNum) return "#f2dbc2"; // highlight cells with number
+    if (original[r][c]) return "#e0e0e0"; // clues in gray
+    if (highlightNum && [...pencils[r][c]].includes(highlightNum)) return "#fff8dc"; // lighter highlight for pencil same number
+    return "white";
+  };
+
+  // Render pencil marks as smaller numbers inside cells
+  const renderPencils = (r,c) => {
+    const marks = [...pencils[r][c]].sort();
+    return (
+      <div style={{fontSize:12, color:"gray", display:"flex", flexWrap:"wrap", justifyContent:"center"}}>
+        {Array.from({length:9},(_,i) => (
+          <span key={i} style={{
+            width:18, height:14, display: "inline-block", 
+            opacity: marks.includes(String(i+1)) ? 1 : 0
+          }}>
+            {i+1}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  // Board cell border styles
+  const cellBorder = (r,c) => ({
+    borderTop: r === 0 ? "2.5px solid black" : r % 3 === 0 ? "2px solid black" : "1px solid gray",
+    borderLeft: c === 0 ? "2.5px solid black" : c % 3 === 0 ? "2px solid black" : "1px solid gray",
+    borderBottom: r === 8 ? "2.5px solid black" : (r+1) % 3 === 0 ? "2px solid black" : "1px solid gray",
+    borderRight: c === 8 ? "2.5px solid black" : (c+1) % 3 === 0 ? "2px solid black" : "1px solid gray",
+  });
+
+  return (
+    <div style={{fontFamily:"Segoe UI, Tahoma, Geneva, Verdana, sans-serif", padding:20, maxWidth: 630, margin:"auto"}}>
+      <h1 style={{textAlign:"center"}}>Sudoku</h1>
+      <div style={{display:"flex", justifyContent:"space-between", marginBottom:10}}>
+        <div>
+          <button onClick={() => setDifficulty("Easy")} disabled={difficulty==="Easy"}>Easy</button>
+          <button onClick={() => setDifficulty("Medium")} disabled={difficulty==="Medium"}>Medium</button>
+          <button onClick={() => setDifficulty("Hard")} disabled={difficulty==="Hard"}>Hard</button>
+          <button onClick={togglePencilMode} style={{marginLeft:20}}>
+            {pencilMode ? "Exit Pencil Mode" : "Enter Pencil Mode"}
+          </button>
+        </div>
+        <div>
+          <span style={{fontWeight:"bold"}}>Time: {formatTime(seconds)}</span>
+          {paused ? <button onClick={() => setPaused(false)} style={{marginLeft:10}}>▶️ Resume</button> : 
+                    <button onClick={() => setPaused(true)} style={{marginLeft:10}}>⏸️ Pause</button>}
+        </div>
+      </div>
+
+      {/* Board */}
+      <table style={{borderCollapse:"collapse", margin:"auto", userSelect:"none"}}>
+        <tbody>
+          {board.map((row,r) => (
+            <tr key={r}>
+              {row.map((cell,c) => {
+                const isInvalid = cell && !isValid(board,r,c,cell);
+                const pencilHere = pencils[r][c];
+                return (
+                <td 
+                  key={c}
+                  onClick={() => handleCellClick(r,c)}
+                  style={{
+                    width:50,
+                    height:50,
+                    textAlign:"center",
+                    verticalAlign:"middle",
+                    fontWeight: original[r][c] ? "bold" : "normal",
+                    fontSize: cell ? 25 : 14,
+                    color: pencilHere.size > 0 && !cell ? "gray" : isInvalid ? "red" : "black",
+                    backgroundColor: cellBgColor(r,c),
+                    cursor: original[r][c] ? "default" : "pointer",
+                    position: "relative",
+                    ...cellBorder(r,c)
+                  }}>
+                  {cell || (pencilHere.size > 0 && renderPencils(r,c))}
+                </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Number Strikeout Panel */}
+      <div style={{display:"flex", justifyContent:"center", marginTop:18, userSelect:"none"}}>
+        {[1,2,3,4,5,6,7,8,9].map(num => {
+          const completed = isNumberCompleted(String(num));
+          return (
+            <div
+              key={num}
+              onClick={() => handleNumberClick(String(num))}
+              style={{
+                margin:4,
+                padding: "6px 14px",
+                fontSize:22,
+                fontWeight:"bold",
+                textDecoration: completed ? "line-through" : "none",
+                color: highlightNum === String(num) ? "#0066ff" : "#222",
+                border: highlightNum === String(num) ? "2px solid #0066ff" : "1px solid #ccc",
+                borderRadius:4,
+                cursor:"pointer",
+                userSelect:"none"
+              }}
+            >
+              {num}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* High Score Input */}
+      {showScoreInput && (
+        <div style={{
+          position:"fixed", top:0, left:0, right:0, bottom:0,
+          background:"rgba(0,0,0,0.5)",
+          display:"flex", justifyContent:"center", alignItems:"center"
+        }}>
+          <div style={{background:"white", padding:20, borderRadius:8, maxWidth:300, width:"90%"}}>
+            <h2>Congratulations!</h2>
+            <p>You completed the puzzle in {formatTime(seconds)}.</p>
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              style={{width:"100%", padding:8, fontSize:16, marginBottom:12}}
+            />
+            <button onClick={saveScore} disabled={!nameInput.trim()} style={{width:"100%", padding:8, fontSize:16}}>Save Score</button>
+          </div>
+        </div>
+      )}
+
+      {/* High Score List */}
+      <div style={{marginTop:30}}>
+        <h3>High Scores</h3>
+        {scores.length === 0 && <p>No scores yet. Be the first!</p>}
+        <ol>
+          {scores.map(({name, time}, i) => (
+            <li key={i}>
+              {name} - {formatTime(time)}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
