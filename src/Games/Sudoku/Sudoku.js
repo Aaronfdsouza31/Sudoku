@@ -8,7 +8,7 @@ const emptyNotes = () => Array(9).fill(null)
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     let j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [arr[j], arr[i]] = [arr[i], arr[j]];
   }
   return arr;
 }
@@ -107,7 +107,7 @@ export default function Sudoku() {
   const [highScores, setHighScores] = useState(getHighScores());
   const [animateComplete, setAnimateComplete] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [puzzleSeed, setPuzzleSeed] = useState(null);
 
   useEffect(() => {
@@ -120,34 +120,33 @@ export default function Sudoku() {
   }, [screen, paused]);
 
   useEffect(() => {
-    function handleVisibility() {
-      if(screen === "play" && !paused && document.hidden) {
+    function visibilityHandler() {
+      if (screen === "play" && !paused && document.hidden) {
         setPaused(true);
-        setShowPauseModal(true);
+        setShowModal(true);
         sessionStorage.setItem("sudoku_autosave", JSON.stringify({
           board, notes, timer, difficulty, name, original, solution, selected, pencil, highlightNum
         }));
       }
     }
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    if(screen === "play" && !paused) {
+    document.addEventListener("visibilitychange", visibilityHandler);
+    if (screen === "play" && !paused) {
       const saved = sessionStorage.getItem("sudoku_autosave");
-      if(saved) setShowPauseModal(true);
+      if(saved) setShowModal(true);
     }
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [screen, paused, board, notes, timer, difficulty, name, original, solution, selected, pencil, highlightNum]);
+    return () => document.removeEventListener("visibilitychange", visibilityHandler);
+  }, [screen, paused]);
 
   useEffect(() => {
     if(screen === "play" && sessionStorage.getItem("sudoku_autosave")) {
       setPaused(true);
-      setShowPauseModal(true);
+      setShowModal(true);
     }
   }, [screen]);
 
-  function handleResumeGame() {
+  const handleResume = () => {
     const saved = JSON.parse(sessionStorage.getItem("sudoku_autosave"));
-    if(saved) {
+    if (saved) {
       setBoard(saved.board);
       setNotes(saved.notes);
       setTimer(saved.timer);
@@ -159,20 +158,22 @@ export default function Sudoku() {
       setPencil(saved.pencil);
       setHighlightNum(saved.highlightNum);
       setPaused(false);
-      setShowPauseModal(false);
+      setShowModal(false);
       sessionStorage.removeItem("sudoku_autosave");
     }
-  }
-  function handleResumeWithoutRestore() {
+  };
+
+  const handleResumeWithout = () => {
     setPaused(false);
-    setShowPauseModal(false);
+    setShowModal(false);
     sessionStorage.removeItem("sudoku_autosave");
-  }
-  function startGame(diff) {
+  };
+
+  const startGame = (diff) => {
     setDifficulty(diff);
-    let clues = diff === "Easy" ? 42 : diff === "Medium" ? 34 : 26;
-    let puzzle = generatePuzzle(clues);
-    let solved = JSON.parse(JSON.stringify(puzzle));
+    const clues = diff === "Easy" ? 42 : diff === "Medium" ? 34 : 26;
+    const puzzle = generatePuzzle(clues);
+    const solved = JSON.parse(JSON.stringify(puzzle));
     solveBoard(solved);
     setSolution(solved);
     setOriginal(puzzle.map(row => row.slice()));
@@ -185,15 +186,16 @@ export default function Sudoku() {
     setScreen("play");
     setPuzzleSeed(puzzle);
     setPaused(false);
-    setShowPauseModal(false);
+    setShowModal(false);
     sessionStorage.removeItem("sudoku_autosave");
-  }
-  function solveBoard(grid) {
-    for(let r=0;r<9;r++) {
-      for(let c=0;c<9;c++) {
-        if(!grid[r][c]) {
-          for(let n=1;n<=9;n++) {
-            if(isValid(grid,r,c,n)) {
+  };
+
+  const solveBoard = (grid) => {
+    for(let r=0; r<9; r++) {
+      for(let c=0; c<9; c++) {
+        if(!grid[r][c]){
+          for(let n=1; n<=9; n++){
+            if(isValid(grid, r, c, n)){
               grid[r][c] = String(n);
               if(solveBoard(grid)) return true;
               grid[r][c] = "";
@@ -204,8 +206,9 @@ export default function Sudoku() {
       }
     }
     return true;
-  }
-  function handleRestart() {
+  };
+
+  const handleRestart = () => {
     setBoard(puzzleSeed.map(row => row.slice()));
     setNotes(emptyNotes());
     setSelected([-1,-1]);
@@ -213,424 +216,356 @@ export default function Sudoku() {
     setHighlightNum(null);
     setTimer(0);
     setPaused(false);
-    setShowPauseModal(false);
+    setShowModal(false);
     sessionStorage.removeItem("sudoku_autosave");
-  }
-  function handleNewGame() {
+  };
+
+  const handleNewGame = () => {
     startGame(difficulty);
-  }
-  function handleBack() {
+  };
+
+  const handleBack = () => {
     setScreen("select");
     setPaused(false);
-    setShowPauseModal(false);
+    setShowModal(false);
     sessionStorage.removeItem("sudoku_autosave");
-  }
-  function selectCell(r, c) {
+  };
+
+  const selectCell = (r, c) => {
     setSelected([r, c]);
     setHighlightNum(null);
-  }
-  function handleInput(num) {
-    const [r, c] = selected;
-    if (r === -1 || c === -1 || original[r][c]) return;
+  };
+
+  const handleInput = (num) => {
+    console.log("handleInput called with number:", num, "at cell:", selected);
+    if (selected[0] === -1 || selected[1] === -1) return;
+    if (original[selected][selected[1]]) return;
+
     if (pencil) {
       setNotes(prev => {
-        const copy = prev.map(row => row.map(set => new Set(set)));
-        const allowed = getAvailableCandidates(board, r, c);
+        const copy = prev.map(row => row.map(cell => new Set(cell)));
+        const allowed = getAvailableCandidates(board, selected[0], selected[1]);
         if (!allowed.includes(Number(num))) return copy;
-        if (copy[r][c].has(num)) copy[r][c].delete(num);
-        else copy[r][c].add(num);
+        if (copy[selected][selected[1]].has(num)) {
+          copy[selected][selected[1]].delete(num);
+        } else {
+          copy[selected][selected[1]].add(num);
+        }
         return copy;
       });
     } else {
-      setBoard(b => {
-        const newB = b.map(row => row.slice());
-        newB[r][c] = num;
-        return newB;
+      setBoard(prev => {
+        const copy = prev.map(row => row.slice());
+        copy[selected[0]][selected[1]] = num;
+        return copy;
       });
       setNotes(prev => {
-        const copy = prev.map(row => row.map(set => new Set(set)));
-        copy[r][c].clear();
+        const copy = prev.map(row => row.map(cell => new Set(cell)));
+        copy[selected][selected[1]].clear();
         return copy;
       });
     }
-  }
+  };
+
   useEffect(() => {
-    function onKeyDown(e) {
-      if (screen !== "play") return;
-      if (!isNaN(e.key) && e.key >= "1" && e.key <= "9") {
+    const onKeyDown = (e) => {
+      if(screen !== "play") return;
+      if (e.key >= '1' && e.key <= '9') {
         handleInput(e.key);
         setHighlightNum(null);
       }
-      if (["Backspace", "Delete", "0"].includes(e.key) && selected[0] !== -1) {
-        const [r, c] = selected;
-        if (pencil) {
+      if ((e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') && selected[0] !== -1) {
+        if(pencil) {
           setNotes(prev => {
-            const copy = prev.map(row => row.map(set => new Set(set)));
-            copy[r][c].clear();
+            const copy = prev.map(row => row.map(cell => new Set(cell)));
+            copy[selected[0]][selected[1]].clear();
             return copy;
           });
         } else {
-          setBoard(b => {
-            const newB = b.map(row => row.slice());
-            newB[r][c] = "";
-            return newB;
+          setBoard(prev => {
+            const copy = prev.map(row => row.slice());
+            copy[selected[0]][selected[1]] = "";
+            return copy;
           });
         }
         setHighlightNum(null);
       }
-      if (e.key === "ArrowUp" && selected[0] > 0) setSelected(([r, c]) => [r - 1, c]);
-      if (e.key === "ArrowDown" && selected < 8) setSelected(([r, c]) => [r + 1, c]);
-      if (e.key === "ArrowLeft" && selected[1] > 0) setSelected(([r, c]) => [r, c - 1]);
-      if (e.key === "ArrowRight" && selected[1] < 8) setSelected(([r, c]) => [r, c + 1]);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selected, screen, pencil]);
+      if(e.key === 'ArrowUp' && selected > 0) setSelected(([r,c]) => [r-1, c]);
+      if(e.key === 'ArrowDown' && selected < 8) setSelected(([r,c]) => [r+1, c]);
+      if(e.key === 'ArrowLeft' && selected[1] > 0) setSelected(([r,c]) => [r, c-1]);
+      if(e.key === 'ArrowRight' && selected[1] < 8) setSelected(([r,c]) => [r, c+1]);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selected, screen]);
+
   useEffect(() => {
-    if (screen === "play" && isComplete() && isCorrect()) {
+    if(screen === "play" && isComplete() && isCorrect()) {
       clearInterval(timerRef.current);
       setAnimateComplete(true);
       setTimeout(() => setScreen("complete"), 1200);
     }
   }, [board]);
-  function isComplete() {
-    return board.every(row => row.every(cell => cell !== ""));
-  }
-  function isCorrect() {
-    return JSON.stringify(board) === JSON.stringify(solution);
-  }
-  function formatTime(sec) {
-    const m = Math.floor(sec / 60), s = sec % 60;
-    return `${m}:${s < 10 ? "0" + s : s}`;
-  }
-  function recordScore(name, t, diff) {
+
+  const isComplete = () => board.every(row => row.every(cell => cell !== ""));
+
+  const isCorrect = () => JSON.stringify(board) === JSON.stringify(solution);
+
+  const formatTime = (seconds) => {
+    let m = Math.floor(seconds / 60);
+    let s = seconds % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  const recordScore = (playerName, time, diff) => {
     let scores = getHighScores();
-    let newList = [...scores[diff], { name, time: t }].sort((a, b) => a.time - b.time).slice(0, 5);
-    scores[diff] = newList;
+    let newScores = [...scores[diff], {name: playerName, time }];
+    newScores = newScores.sort((a,b)=> a.time - b.time).slice(0, 5);
+    scores[diff] = newScores;
     setHighScores(scores);
     saveHighScores(scores);
-  }
-  function countNum(n) {
-    return board.reduce((acc, r) => acc + r.reduce((a, c) => a + (c === String(n) ? 1 : 0), 0), 0);
-  }
-  function MiniGridPencil({ notes }) {
-    const nums = Array.from({ length: 9 }, (_, i) => String(i + 1));
-    return (
-      <div style={{ width: "100%", height: "100%", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", fontSize: "11px", color: "#736e6e", placeItems: "center" }}>
-        {nums.map(n => (
-          <div key={n} style={{ opacity: notes.has(n) ? 1 : 0.17, height: "1em" }}>{n}</div>
-        ))}
-      </div>
-    );
-  }
-  function renderCell(r, c) {
-    const v = board[r][c];
-    const pencilSet = notes[r][c];
+  };
+
+  const countNum = (n) => {
+    let count = 0;
+    for(let row of board){
+      for(let cell of row){
+        if(cell === String(n)) count++;
+      }
+    }
+    return count;
+  };
+
+  const MiniGridNote = ({ notes }) => {
+    const nums = Array.from({length:9}).map((_, i) => String(i+1));
+    return <div style={{
+      width: '100%', height:'100%',
+      display: 'grid',
+      gridTemplateColumns: "repeat(3, 1fr)",
+      fontSize: '11px',
+      color:'#736e6e',
+      placeItems:'center'
+    }}>
+      {nums.map(n => <div key={n} style={{opacity: notes.has(n)?1:0.15, height: '1em'}}>{n}</div>)}
+    </div>;
+  };
+
+  const renderCell = (r,c) => {
+    const val = board[r][c];
     const isClue = original[r][c];
-    const isSelected = selected[0] === r && selected[1] === c;
-    const isHighlighted = highlightNum && String(v) === String(highlightNum);
-    const cellAnim = animateComplete ? { animation: 'bgFlash 0.8s linear alternate infinite' } : {};
+    const notesInCell = notes[r][c];
+    const isSelectedCell = (selected[0] === r && selected[1] === c);
+    const isHighlighted = (highlightNum && val === highlightNum);
+    const animateOnComplete = animateComplete ? {animation: 'bgFlash 0.8s linear alternate infinite'} : {};
     return (
-      <td
-        key={c}
-        onClick={() => {
-          selectCell(r, c);
-          if (board[r][c]) setHighlightNum(board[r][c]);
-        }}
-        style={{
-          width: "11%",
-          height: 0,
-          paddingBottom: "11%",
-          minWidth: "32px",
-          maxWidth: "48px",
-          position: "relative",
-          textAlign: "center",
-          fontWeight: isClue ? "bold" : "normal",
-          fontSize: v ? "2rem" : "1.1rem",
-          cursor: isClue ? "default" : "pointer",
-          background:
-            isSelected
-              ? "#ffa500"
-              : animateComplete
-              ? "#a0ffad"
-              : isHighlighted
-              ? "#dde8f7"
-              : isClue
-              ? "#e9e9e9"
-              : "white",
-          ...cellBorder(r, c),
-          ...cellAnim,
-          transition: "background 0.2s",
-        }}
-      >
-        <span style={{
-          position: "absolute",
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
+      <td key={c} onClick={() => {
+        selectCell(r,c);
+        if(board[r][c]) setHighlightNum(board[r][c]);
+      }}
+      style={{
+        ...cellBorder(r,c),
+        width: '11%',
+        paddingBottom: '11%',
+        position: 'relative',
+        textAlign: 'center',
+        fontWeight: isClue ? 'bold' : 'normal',
+        fontSize: val ? '2rem' : '1rem',
+        cursor: isClue ? 'default' : 'pointer',
+        background: isSelectedCell ? '#ffa500' :
+          animateComplete ? '#a0ffad' :
+          isHighlighted ? '#dde7f7' :
+          isClue ? '#eaeaea' : 'white',
+        ...animateOnComplete,
+        transition: 'background 0.2s',
+        userSelect: 'none',
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)'
         }}>
-          {v ? v : pencilSet.size > 0 && <MiniGridPencil notes={pencilSet} />}
-        </span>
+          {
+            val || notesInCell.size === 0 ? val : <MiniGridNote notes={notesInCell} />
+          }
+        </div>
       </td>
     );
-  }
-  function NumPanel() {
-    function handleNumClick(n) {
-      if (
-        Array.isArray(selected) &&
-        Array.isArray(original) &&
-        selected[0] >= 0 &&
-        selected[1] >= 0 &&
-        original[selected] &&
-        !original[selected][selected[1]]
-      ) {
-        handleInput(String(n));
-      }
-      setHighlightNum(highlightNum === String(n) ? null : String(n));
-    }
+  };
+
+  const NumPad = () => {
+    const handleNumClick = (num) => {
+      console.log('NumPad clicked:', num, 'Selected cell:', selected);
+      if( selected[0] < 0 || selected[1] < 0 ) return; // No cell selected
+      if( original[selected][selected[1]] ) return; // Not editable
+      handleInput(String(num));
+      setHighlightNum(String(num));
+    };
+
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-start",
-          alignItems: "center",
-          gap: "6px",
-          width: "100%",
-          maxWidth: "450px",
-          margin: "16px auto",
-        }}
-      >
-        {[...Array(9)].map((_, i) => {
-          const n = i + 1;
-          const done = countNum(n) === 9;
+      <div style={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+        gap: '6px',
+        maxWidth: '450px',
+        margin: '16px auto',
+      }}>
+        {[...Array(9).keys()].map(i => {
+          const num = (i + 1);
+          const isDone = countNum(num) >= 9;
+          const isHighlighted = highlightNum === String(num);
           return (
-            <div
-              key={n}
-              onClick={() => handleNumClick(n)}
-              style={{
-                padding: "9px 10px",
-                border: highlightNum === String(n) ? "2px solid blue" : "1px solid #bbb",
-                borderRadius: 9,
-                fontSize: "19px",
-                fontWeight: "bold",
-                textDecoration: done ? "line-through" : "none",
-                color: highlightNum === String(n) ? "blue" : "#333",
-                background: done ? "#ddeedf" : "#f7f7fa",
-                cursor: done ? "not-allowed" : "pointer",
-                opacity: done ? 0.45 : 1,
-                userSelect: "none",
-                minWidth: "32px",
-                minHeight: "32px",
-                maxWidth: "38px",
-                boxSizing: "border-box",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {n}
+            <div key={num} onClick={() => handleNumClick(num)} style={{
+              padding: '9px 10px',
+              borderRadius: 10,
+              border: isHighlighted ? '2px solid blue' : '1px solid #bbb',
+              fontWeight: 'bold',
+              fontSize: '18px',
+              cursor: isDone ? 'not-allowed' : 'pointer',
+              opacity: isDone ? 0.4 : 1,
+              backgroundColor: isDone ? '#ddeff5' : '#f7f9fc',
+              userSelect: 'none',
+              minWidth: 36,
+              textAlign: 'center',
+              color: '#222',
+              userSelect: 'none',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {num}
             </div>
           );
         })}
       </div>
     );
-  }
-  if (screen === "init") {
-    return (
-      <div style={ui.container}>
-        <h2>Welcome to Sudoku</h2>
-        <input
-          value={inputName}
-          onChange={e => setInputName(e.target.value)}
-          placeholder="Enter your name"
-          style={ui.input}
-        />
-        <button disabled={!inputName.trim()} onClick={() => { setName(inputName.trim()); setScreen("select"); }}>
-          Next
-        </button>
-        <div style={{ marginTop: 20 }}>
-          <HighScoresList allScores={highScores} />
-        </div>
-      </div>
-    );
-  }
-  if (screen === "select") {
-    return (
-      <div style={ui.container}>
-        <h2>Hello, {name}!</h2>
-        <h4>Select Difficulty</h4>
-        <button style={ui.diffBtn} onClick={() => startGame("Easy")}>Easy</button>
-        <button style={ui.diffBtn} onClick={() => startGame("Medium")}>Medium</button>
-        <button style={ui.diffBtn} onClick={() => startGame("Hard")}>Hard</button>
-      </div>
-    );
-  }
+  };
+
   return (
     <div style={ui.container}>
-      <style>{`
-        @keyframes bgFlash {
-          0% { background: #a0ffad; }
-          100% { background: #fff8a0; }
-        }
-      `}</style>
-      <h3 style={{ marginBottom: 4 }}>Name: {name} | Difficulty: {difficulty} | Time: {formatTime(timer)}</h3>
-      <NumPanel />
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <table style={{ borderCollapse: "collapse", margin: "auto", width: "100%", maxWidth: "450px", aspectRatio: "1" }}>
-          <tbody>
-            {Array.from({ length: 9 }, (_, r) => (
-              <tr key={r}>{Array.from({ length: 9 }, (_, c) => renderCell(r, c))}</tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={{ marginLeft: 32, marginTop: 14 }}>
-          <button style={ui.pencilBtn} onClick={() => setPencil(p => !p)}>
-            {pencil ? "Exit 📝 Pencil" : "Enter 📝 Pencil"}
+      <h3 style={{marginBottom: 10}}>Name: {name} | Difficulty: {difficulty} | Time: {formatTime(timer)}</h3>
+      {screen === 'init' && (
+        <>
+          <input
+            type="text"
+            value={inputName}
+            onChange={e => setInputName(e.target.value)}
+            placeholder="Enter your name"
+            style={ui.input}
+          />
+          <button
+            disabled={!inputName.trim()}
+            onClick={() => { setName(inputName.trim()); setScreen('select'); }}
+          >
+            Next
           </button>
+          <div>
+            <h4>Top Scores</h4>
+            <pre>{JSON.stringify(highScores, null, 2)}</pre>
+          </div>
+        </>
+      )}
+
+      {screen === 'select' && (
+        <>
+          <h4>Select Difficulty</h4>
+          <button style={ui.diffBtn} onClick={() => startGame('Easy')}>Easy</button>
+          <button style={ui.diffBtn} onClick={() => startGame('Medium')}>Medium</button>
+          <button style={ui.diffBtn} onClick={() => startGame('Hard')}>Hard</button>
+        </>
+      )}
+
+      {screen === 'play' && (
+        <>
+          {/* Number pad with number click handler */}
+          <NumPad />
+
+          {/* Sudoku grid */}
+          <table style={{borderCollapse: 'collapse', margin: 'auto', width: '100%', maxWidth: 450, aspectRatio: '1'}}>
+            <tbody>
+              {board.map((row, i) => (
+                <tr key={i}>
+                  {row.map((cell, j) => renderCell(i, j))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <button onClick={() => setPencil(!pencil)} style={ui.pencilBtn}>
+            {pencil ? 'Exit Pencil Mode' : 'Enter Pencil Mode'}
+          </button>
+
+          <div style={{ marginTop: 16, maxWidth: 340, margin: 'auto' }}>
+            <button onClick={handleBack} style={ui.button}>Back</button>
+            <button onClick={handleRestart} style={ui.button}>Restart</button>
+            <button onClick={handleNewGame} style={ui.button}>New Game</button>
+          </div>
+        </>
+      )}
+
+      {screen === 'complete' && (
+        <div>
+          <h2>Congratulations, {name}!</h2>
+          <p>You completed the puzzle in {formatTime(timer)}</p>
+          <button onClick={() => setScreen('select')} style={ui.button}>Play Again</button>
         </div>
-      </div>
-      <div style={{ height: 28, margin: "16px auto" }}>
-        {pencil
-          ? <span style={{ color: "#444" }}>Pencil mode: only allowed numbers can be written as notes</span>
-          : <span style={{ color: "#444" }}>Regular mode: you can enter any number (even if repeated)</span>}
-      </div>
-      <div style={{ marginTop: 32, maxWidth: 340, marginLeft: "auto", marginRight: "auto" }}>
-        <div style={{display:"flex", justifyContent:"center", gap:16, marginBottom:16}}>
-          <button onClick={handleBack} style={{ padding: "7px 18px", fontWeight: "bold" }}>Back</button>
-          <button onClick={handleRestart} style={{ padding: "7px 18px", fontWeight: "bold" }}>Restart</button>
-          <button onClick={handleNewGame} style={{ padding: "7px 18px", fontWeight: "bold" }}>New Game</button>
-        </div>
-        <h4>Top 5 High Scores ({difficulty})</h4>
-        <ol>
-          {highScores[difficulty] && highScores[difficulty].length ? highScores[difficulty].map(({ name, time }, i) => (
-            <li key={i}>{name} - {formatTime(time)}</li>
-          )) : <li>No scores yet</li>}
-        </ol>
-      </div>
-      
-      {/* DEBUG: show selected cell coordinates */}
-      <div style={{position: 'fixed', bottom: 10, left: 10, backgroundColor: '#eee', padding: 10, zIndex: 9999}}>
+      )}
+
+      {/* Debug window showing selected cell */}
+      <div style={{
+        position: 'fixed',
+        bottom: 10,
+        left: 10,
+        backgroundColor: '#eee',
+        padding: 10,
+        zIndex: 9999
+      }}>
         <strong>Selected Cell:</strong> {JSON.stringify(selected)}
       </div>
+    </div>
+  );
+}
 
-      {showPauseModal && (
-        <PauseModal
-          onResume={handleResumeGame}
-          onResumeWithoutRestore={handleResumeWithoutRestore}
-        />
-      )}
-      {screen === "complete" && (
-        <CompletedDialog
-          timer={timer}
-          name={name}
-          onClose={() => {
-            recordScore(name, timer, difficulty);
-            setScreen("select");
-            setAnimateComplete(false);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-function PauseModal({ onResume, onResumeWithoutRestore }) {
-  return (
-    <div style={{
-      position: "fixed", left: 0, top: 0, right: 0, bottom: 0,
-      background: "rgba(0,0,0,0.16)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 15, padding: "34px 32px", minWidth: 260, textAlign: "center"
-      }}>
-        <h2>Your game has been paused</h2>
-        <button onClick={onResume} style={{ padding: "12px 25px", margin: "16px 0", fontSize: 17, borderRadius: 24, fontWeight: "bold", background: "#111", color: "#fff", border: "none" }}>Resume</button>
-        <div>
-          <button onClick={onResumeWithoutRestore} style={{ marginTop: 10, background: "none", border: "none", fontSize: 15, color: "#1A2B99", textDecoration: "underline", cursor: "pointer" }}>Resume without restoring</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-function CompletedDialog({ timer, name, onClose }) {
-  return (
-    <div style={{
-      position: "fixed", left: 0, right: 0, top: 0, bottom: 0,
-      display: "flex", justifyContent: "center", alignItems: "center",
-      background: "rgba(39,171,39,0.24)", zIndex: 20
-    }}>
-      <div style={{
-        padding: 28,
-        background: "white",
-        borderRadius: 12,
-        boxShadow: "0 0 28px #0a9640"
-      }}>
-        <h2 style={{ color: "#0a9640" }}>🎉 Completed!</h2>
-        <p style={{ fontSize: 18, margin: "16px 0" }}>
-          Congratulations <b>{name}</b>,<br />
-          Your solving time is: <b>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}</b>
-        </p>
-        <button style={{ fontSize: 14, padding: "8px 24px", cursor: "pointer" }} onClick={onClose}>OK</button>
-      </div>
-    </div>
-  );
-}
-function HighScoresList({ allScores }) {
-  return (
-    <div style={{ maxWidth: 400, marginTop: 8, fontSize: 14, color: "#666" }}>
-      <h4>High Scores</h4>
-      {["Easy", "Medium", "Hard"].map(diff => (
-        <div key={diff} style={{ marginBottom: 6 }}>
-          <strong>{diff}: </strong>
-          {allScores[diff] && allScores[diff].length > 0
-            ? allScores[diff].map(s => `${s.name} (${Math.floor(s.time / 60)}:${String(s.time % 60).padStart(2, '0')})`).join(", ")
-            : "No scores yet"}
-        </div>
-      ))}
-    </div>
-  );
-}
-function cellBorder(r, c) {
-  return {
-    borderTop: r === 0 ? "2.5px solid #111" : r % 3 === 0 ? "2px solid #222" : "1px solid #bbb",
-    borderLeft: c === 0 ? "2.5px solid #111" : c % 3 === 0 ? "2px solid #222" : "1px solid #bbb",
-    borderRight: c === 8 ? "2.5px solid #111" : (c + 1) % 3 === 0 ? "2px solid #222" : "1px solid #bbb",
-    borderBottom: r === 8 ? "2.5px solid #111" : (r + 1) % 3 === 0 ? "2px solid #222" : "1px solid #bbb"
-  };
-}
 const ui = {
   container: {
     maxWidth: 670,
-    margin: "18px auto 0",
-    padding: "16px 6px 36px",
-    borderRadius: 10,
-    background: "#f3f7f8",
-    minHeight: 530
+    margin: 'auto',
+    padding: '10px',
+    backgroundColor: '#f3f7f8',
+    minHeight: 600,
   },
   input: {
-    fontSize: 22,
-    padding: "7px 16px",
-    borderRadius: 5,
-    border: "1.5px solid #aaa",
-    marginRight: 8,
-    marginBottom: 18,
-    width: "240px"
+    fontSize: 20,
+    padding: '8px',
+    marginBottom: 10,
+    width: '80%',
+    maxWidth: 400,
   },
   diffBtn: {
+    padding: '10px 20px',
+    marginRight: 10,
     fontSize: 18,
-    padding: "7px 26px",
-    margin: "0 7px 17px",
-    borderRadius: 6,
-    border: "1.7px solid #98c3ff",
-    background: "#e5f0ff",
-    cursor: "pointer"
+    cursor: 'pointer',
+  },
+  button: {
+    padding: '10px 20px',
+    margin: '10px 5px',
+    fontSize: 16,
   },
   pencilBtn: {
-    fontSize: 15,
-    padding: "6px 14px",
-    marginTop: "2px",
-    borderRadius: 6,
-    border: "1.6px solid #555",
-    background: "#f9f8f4",
-    cursor: "pointer",
-    fontWeight: "bold"
-  }
+    marginTop: 10,
+    padding: '8px 16px',
+    fontSize: 16,
+    cursor: 'pointer',
+  },
 };
+
+function cellBorder(r,c) {
+  return {
+    borderTop: r % 3 === 0 ? '2px solid black' : '1px solid gray',
+    borderLeft: c % 3 === 0 ? '2px solid black' : '1px solid gray',
+    borderRight: c === 8 ? '2px solid black' : '1px solid gray',
+    borderBottom: r === 8 ? '2px solid black' : '1px solid gray',
+  };
+}
