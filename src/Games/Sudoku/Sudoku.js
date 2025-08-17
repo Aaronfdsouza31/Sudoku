@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// Helpers
 const emptyGrid = () => Array(9).fill(null).map(() => Array(9).fill(""));
 const emptyNotes = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => new Set()));
 
@@ -43,8 +42,8 @@ export default function Sudoku(){
   const [timer,setTimer]=useState(0);
   const timerRef=useRef();
   const [complete,setComplete]=useState(false);
+  const [highlightNum,setHighlightNum]=useState(null);
 
-  // generate once we hit play
   function start(d){
     setDiff(d);
     const clues= d==="Easy"?42:d==="Medium"?32:26;
@@ -57,34 +56,24 @@ export default function Sudoku(){
     setPencil(false);
     setTimer(0);
     setComplete(false);
+    setHighlightNum(null);
     setStage("play");
   }
-
-  // restart same puzzle
   function restart(){
     setBoard(original.map(r=>[...r]));
     setNotes(emptyNotes());
     setSelect([-1,-1]);
     setPencil(false);
     setTimer(0);
+    setHighlightNum(null);
   }
 
-  // timer
-  useEffect(()=>{
-    if(stage==="play"){
-      timerRef.current=setInterval(()=>setTimer(t=>t+1),1000);
-    }
-    return()=>clearInterval(timerRef.current);
-  },[stage]);
+  useEffect(()=>{ if(stage==="play") timerRef.current=setInterval(()=>setTimer(t=>t+1),1000); return()=>clearInterval(timerRef.current); },[stage]);
 
-  // win detect
   useEffect(()=>{
-    if(stage==="play"){
-      const done=JSON.stringify(board)===JSON.stringify(solution);
-      if(done){
-        clearInterval(timerRef.current);
-        setComplete(true);
-      }
+    if(stage==="play" && JSON.stringify(board)===JSON.stringify(solution)){
+      clearInterval(timerRef.current);
+      setComplete(true);
     }
   },[board]);
 
@@ -99,25 +88,17 @@ export default function Sudoku(){
         return cp;
       });
     }else{
-      setBoard(b=>{
-        const cp=b.map(r=>r.slice());
-        cp[r][c]=String(n);
-        return cp;
-      });
-      setNotes(ns=>{
-        const cp=ns.map(r=>r.map(s=>new Set(s)));
-        cp[r][c].clear();return cp;
-      });
+      setBoard(b=>{ const cp=b.map(r=>r.slice()); cp[r][c]=String(n); return cp;});
+      setNotes(ns=>{ const cp=ns.map(r=>r.map(s=>new Set(s))); cp[r][c].clear();return cp;});
     }
   }
 
-  // keyboard
   useEffect(()=>{
     function key(e){
-      if(stage!=="play") return;
-      if(/[1-9]/.test(e.key)) handleIn(e.key);
+      if(stage!=="play")return;
+      if(/[1-9]/.test(e.key)){ handleIn(e.key); setHighlightNum(e.key); }
       if(["Backspace","Delete","0"].includes(e.key)) handleIn("");
-      if(e.key==="p") setPencil(p=>!pencil);
+      if(e.key==="p") setPencil(p=>!p);
     }
     window.addEventListener("keydown",key);
     return()=>window.removeEventListener("keydown",key);
@@ -150,7 +131,13 @@ export default function Sudoku(){
     <div style={st.wrap}>
       <h3>{name} | {diff} | {fT(timer)}</h3>
       <div style={st.nums}>
-        {Array.from({length:9},(_,i)=>(<div key={i+1} onClick={()=>handleIn(String(i+1))} style={st.num}>{i+1}</div>))}
+        {Array.from({length:9},(_,i)=>(<div
+            key={i+1}
+            onClick={()=>setHighlightNum(String(i+1))}
+            style={{
+              ...st.num,
+              background: highlightNum===String(i+1)? "#aeddff":"#f4f4f4"
+            }}>{i+1}</div>))}
       </div>
       <div style={st.board}>
         {board.map((row,r)=>(
@@ -158,6 +145,7 @@ export default function Sudoku(){
             {row.map((v,c)=>{
               const isSel=r===select[0]&&c===select[1];
               const clue=original[r][c];
+              const isMatch = v && highlightNum && v===highlightNum;
               return(
                 <div key={c} onClick={()=>setSelect([r,c])} style={{
                   ...st.cell,
@@ -165,7 +153,7 @@ export default function Sudoku(){
                   borderLeft:c%3===0?"3px solid #000":"1px solid #999",
                   borderRight:(c+1)%3===0?"3px solid #000":"1px solid #999",
                   borderBottom:(r+1)%3===0?"3px solid #000":"1px solid #999",
-                  background: clue?"#ddd":isSel?"#ffe8a0":"white"
+                  background: clue?"#ddd": isSel?"#ffe8a0" : isMatch?"#cfe8ff":"white"
                 }}>
                   {v?(<span style={{fontSize:22,fontWeight:"bold"}}>{v}</span>):
                   [...notes[r][c]].length>0 && (
@@ -183,7 +171,6 @@ export default function Sudoku(){
       </div>
       <button onClick={()=>setPencil(!pencil)} style={{marginTop:10}}>{pencil?"Exit Pencil":"Enter Pencil"}</button>
 
-      {/* New Buttons */}
       <div style={{marginTop:10}}>
         <button onClick={()=>setStage("diff")}>Back</button>{" "}
         <button onClick={restart}>Restart</button>{" "}
@@ -207,7 +194,7 @@ const st={
   wrap:{maxWidth:450,margin:"20px auto",textAlign:"center",fontFamily:"Arial"},
   input:{padding:8,fontSize:16,width:"80%",marginBottom:12},
   nums:{display:"flex",justifyContent:"center",gap:6,marginBottom:12},
-  num:{padding:"7px 11px",background:"#f4f4f4",border:"1px solid #999",borderRadius:6,cursor:"pointer"},
+  num:{padding:"7px 11px",border:"1px solid #999",borderRadius:6,cursor:"pointer"},
   board:{},
   row:{display:"flex"},
   cell:{width:"50px",height:"50px",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",cursor:"pointer"},
