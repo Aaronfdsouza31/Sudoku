@@ -1,12 +1,8 @@
-import React from "react";
+// === FILE: src/App.js ===
 import Sudoku from "./Games/Sudoku/Sudoku";
 
 function App() {
-  return (
-    <div>
-      <Sudoku />
-    </div>
-  );
+  return <Sudoku />;
 }
 
 export default App;
