@@ -178,6 +178,25 @@ export default function Sudoku() {
 
   const isClue = (r,c) => !!original[r][c];
 
+  /** unified number pad: input or highlight */
+  function handlePad(n) {
+    if (select[0] < 0 || select[1] < 0 || original[select[0]][select[1]]) {
+      setHighlightNum(n);
+      setSelect([-1, -1]);
+    } else {
+      handleIn(n);
+    }
+  }
+
+  function handlePadClear() {
+    if (select[0] < 0 || select[1] < 0 || original[select[0]][select[1]]) {
+      setHighlightNum(null);
+      setSelect([-1, -1]);
+    } else {
+      handleIn("");
+    }
+  }
+
   return (
     <div style={st.wrap}>
       {stage === "name" ? (
@@ -197,62 +216,52 @@ export default function Sudoku() {
       ) : (
         <>
           <h3>{name} | {diff} | {fT(timer)}</h3>
+
+          {/* Number pad aligned with board */}
           <div style={st.nums}>
             {Array.from({ length: 9 }, (_, i) => (
               <div
                 key={i + 1}
-                onClick={() => {
-                  setHighlightNum(String(i + 1));
-                  setSelect([-1, -1]);
-                }}
+                onClick={() => handlePad(String(i + 1))}
                 style={{
                   ...st.num,
-                  background: highlightNum === String(i + 1) ? "#aeddff" : "#f4f4f4"
+                  background: highlightNum === String(i + 1) ? "#aeddff" : "#f4f4f4",
+                  fontWeight: highlightNum === String(i + 1) ? "bold" : "normal"
                 }}
               >
                 {i + 1}
               </div>
             ))}
             <div
-              onClick={() => {
-                setHighlightNum(null);
-                setSelect([-1, -1]);
-              }}
+              onClick={handlePadClear}
               style={{
                 ...st.num,
                 background: highlightNum === null ? "#aeddff" : "#f4f4f4",
-                cursor: 'pointer',
-                userSelect: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                userSelect: "none"
               }}
             >
               Clear
             </div>
           </div>
 
+          {/* Sudoku board */}
           <div style={st.board}>
             {board.map((row, r) => (
               <div key={r} style={st.row}>
                 {row.map((v, c) => {
                   const isSel = r === select[0] && c === select[1];
                   const isMatch = v && highlightNum && v === highlightNum;
-                  const clue = isClue(r,c);
+                  const clue = isClue(r, c);
                   const error = mistakes.some(([rr, cc]) => rr === r && cc === c);
 
-                  // New NYT-style highlight logic:
-                  // Strong orange for all cells matching highlightNum
-                  // Soft yellow for selected cell and same row/col/box
                   let bg;
-                  if (isMatch) bg = "#e69500"; // strong orange highlight
-                  else if (isSel) bg = "#ffe8a0"; // selected cell
+                  if (isMatch) bg = "#e69500";
+                  else if (isSel) bg = "#ffe8a0";
                   else if (
                     highlightNum && select[0] !== -1 && select[1] !== -1 &&
                     (r === select[0] || c === select[1] ||
-                    (Math.floor(r / 3) === Math.floor(select[0] / 3) &&
-                     Math.floor(c / 3) === Math.floor(select[1] / 3)))
-                  ) bg = "#fff1cb"; // soft yellow cross highlighting
+                    (Math.floor(r / 3) === Math.floor(select[0] / 3) && Math.floor(c / 3) === Math.floor(select[1] / 3)))
+                  ) bg = "#fff1cb";
                   else if (clue) bg = "#ddd";
                   else bg = "white";
 
@@ -334,7 +343,7 @@ export default function Sudoku() {
 
 const st = {
   wrap: {
-    maxWidth: 450,
+    maxWidth: 486,
     margin: "20px auto",
     textAlign: "center",
     fontFamily: "Arial"
@@ -349,14 +358,22 @@ const st = {
     display: "flex",
     justifyContent: "center",
     gap: 6,
-    marginBottom: 12
+    marginBottom: 12,
+    width: 486, // 9 * 50 (width) + 8 * 6 (gap)
+    margin: "0 auto 12px"
   },
   num: {
-    padding: "7px 11px",
+    width: "50px",
+    height: "50px",
+    padding: 0,
     border: "1px solid #999",
     borderRadius: 6,
     cursor: "pointer",
-    userSelect: "none"
+    userSelect: "none",
+    fontSize: 22,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
   },
   board: {},
   row: {
