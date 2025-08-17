@@ -8,14 +8,14 @@ function ok(g,r,c,n){
   n=String(n);
   for(let i=0;i<9;i++) if(g[r][i]===n||g[i][c]===n) return false;
   const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
-  for(let rr=br;rr<br+3;rr++) for(let cc=bc;cc<bc+3;cc++) if(g[rr][cc]===n) return false;
+  for(let rr=br;rr<br+3;rr++)for(let cc=bc;cc<bc+3;cc++) if(g[rr][cc]===n) return false;
   return true;
 }
 function generate(clues){
   const g=emptyGrid();
   function fill(i=0){
     if(i===81) return true;
-    const r=Math.floor(i/9), c=i%9;
+    const r=Math.floor(i/9),c=i%9;
     if(g[r][c]) return fill(i+1);
     for(const n of shuffle([1,2,3,4,5,6,7,8,9])){
       if(ok(g,r,c,n)){ g[r][c]=String(n); if(fill(i+1)) return true; g[r][c]=""; }
@@ -23,8 +23,7 @@ function generate(clues){
     return false;
   }
   fill();
-  let puz=g.map(r=>[...r]);
-  let rm=81-clues;
+  let puz=g.map(r=>[...r]), rm=81-clues;
   while(rm>0){ const r=Math.floor(Math.random()*9),c=Math.floor(Math.random()*9); if(puz[r][c]!==""){puz[r][c]="";rm--;} }
   return [puz,g];
 }
@@ -41,13 +40,13 @@ export default function Sudoku(){
   const [pencil,setPencil]=useState(false);
   const [timer,setTimer]=useState(0);
   const timerRef=useRef();
-  const [complete,setComplete]=useState(false);
   const [highlightNum,setHighlightNum]=useState(null);
+  const [complete,setComplete]=useState(false);
   const [mistakes,setMistakes]=useState([]);
 
   function start(d){
     setDiff(d);
-    const clues= d==="Easy"?42:d==="Medium"?32:26;
+    const clues=d==="Easy"?42:d==="Medium"?32:26;
     const [pz,sol]=generate(clues);
     setBoard(pz.map(r=>[...r]));
     setOriginal(pz.map(r=>[...r]));
@@ -63,21 +62,14 @@ export default function Sudoku(){
   }
   function restart(){
     setBoard(original.map(r=>[...r]));
-    setNotes(emptyNotes());
-    setMistakes([]);
-    setSelect([-1,-1]);
-    setPencil(false);
-    setTimer(0);
-    setHighlightNum(null);
+    setNotes(emptyNotes()); setMistakes([]);
+    setSelect([-1,-1]); setHighlightNum(null);
+    setPencil(false); setTimer(0);
   }
 
-  useEffect(()=>{ if(stage==="play")timerRef.current=setInterval(()=>setTimer(t=>t+1),1000); return()=>clearInterval(timerRef.current);},[stage]);
-
+  useEffect(()=>{ if(stage==="play")timerRef.current=setInterval(()=>setTimer(t=>t+1),1000); return()=>clearInterval(timerRef.current); },[stage]);
   useEffect(()=>{
-    if(stage==="play" && JSON.stringify(board)===JSON.stringify(solution)){
-      clearInterval(timerRef.current);
-      setComplete(true);
-    }
+    if(stage==="play"&&JSON.stringify(board)===JSON.stringify(solution)){ clearInterval(timerRef.current); setComplete(true); }
     detectMistakes();
   },[board]);
 
@@ -88,8 +80,8 @@ export default function Sudoku(){
         const v=board[r][c];
         if(!v)continue;
         for(let i=0;i<9;i++){
-          if(i!==c&&board[r][i]===v)m.push([r,c]);
-          if(i!==r&&board[i][c]===v)m.push([r,c]);
+          if(i!==c && board[r][i]===v) m.push([r,c]);
+          if(i!==r && board[i][c]===v) m.push([r,c]);
         }
         const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
         for(let rr=br;rr<br+3;rr++)for(let cc=bc;cc<bc+3;cc++){
@@ -106,13 +98,16 @@ export default function Sudoku(){
     if(pencil){
       setNotes(ns=>{
         const cp=ns.map(row=>row.map(s=>new Set(s)));
-        if(cp[r][c].has(n))cp[r][c].delete(n);
+        if(cp[r][c].has(n)) cp[r][c].delete(n);
         else cp[r][c].add(n);
         return cp;
       });
     }else{
-      setBoard(b=>{const cp=b.map(u=>u.slice());cp[r][c]=String(n);return cp;});
-      setNotes(ns=>{const cp=ns.map(x=>x.map(s=>new Set(s)));cp[r][c].clear();return cp;});
+      setBoard(b=>{const cp=b.map(x=>x.slice()); cp[r][c]=String(n); return cp;});
+      setNotes(ns=>{
+        const cp=ns.map(row=>row.map(s=>new Set(s)));
+        cp[r][c].clear(); return cp;
+      });
     }
     setHighlightNum(n);
   }
@@ -120,9 +115,9 @@ export default function Sudoku(){
   useEffect(()=>{
     function key(e){
       if(stage!=="play")return;
-      if(/[1-9]/.test(e.key)){handleIn(e.key);setHighlightNum(e.key);}
+      if(/[1-9]/.test(e.key)){ handleIn(e.key); setHighlightNum(e.key);}
       if(["Backspace","Delete","0"].includes(e.key)) handleIn("");
-      if(e.key==="p")setPencil(p=>!p);
+      if(e.key==="p") setPencil(p=>!p);
     }
     window.addEventListener("keydown",key);
     return()=>window.removeEventListener("keydown",key);
@@ -132,48 +127,44 @@ export default function Sudoku(){
 
   const clickCell=(r,c)=>{
     setSelect([r,c]);
-    const val=board[r][c];
-    if(val)setHighlightNum(val);
-    else setHighlightNum(null);
+    const v=board[r][c];
+    setHighlightNum(v || null);
   };
 
   if(stage==="name"){
-    return(
-      <div style={st.wrap}>
-        <h2>Welcome to Sudoku</h2>
-        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Enter name" style={st.input}/>
-        <button disabled={!name} onClick={()=>setStage("diff")}>Next</button>
-      </div>
-    );
+    return(<div style={st.wrap}>
+      <h2>Welcome to Sudoku</h2>
+      <input style={st.input} placeholder="Enter name" value={name} onChange={e=>setName(e.target.value)}/>
+      <button disabled={!name} onClick={()=>setStage("diff")}>Next</button>
+    </div>);
   }
   if(stage==="diff"){
-    return(
-      <div style={st.wrap}>
-        <h3>Hello {name}</h3>
-        <p>Select Difficulty</p>
-        <button onClick={()=>start("Easy")}>Easy</button>
-        <button onClick={()=>start("Medium")}>Medium</button>
-        <button onClick={()=>start("Hard")}>Hard</button>
-      </div>
-    );
+    return(<div style={st.wrap}>
+      <h3>Hello {name}</h3>
+      <p>Select Difficulty</p>
+      <button onClick={()=>start("Easy")}>Easy</button>
+      <button onClick={()=>start("Medium")}>Medium</button>
+      <button onClick={()=>start("Hard")}>Hard</button>
+    </div>);
   }
 
   return(
     <div style={st.wrap}>
       <h3>{name} | {diff} | {fT(timer)}</h3>
       <div style={st.nums}>
-        {Array.from({length:9},(_,i)=>(<div key={i+1}
-          onClick={()=>{setHighlightNum(String(i+1)); setSelect([-1,-1]);}}
-          style={{...st.num,background: highlightNum===String(i+1)?"#aeddff":"#f4f4f4"}}>{i+1}</div>))}
+        {Array.from({length:9},(_,i)=>(<div
+          key={i+1}
+          onClick={()=>{ setHighlightNum(String(i+1)); setSelect([-1,-1]); }}
+          style={{...st.num,background:highlightNum===String(i+1)?"#aeddff":"#f4f4f4"}}>{i+1}</div>))}
       </div>
       <div style={st.board}>
         {board.map((row,r)=>(
           <div key={r} style={st.row}>
             {row.map((v,c)=>{
-              const isSel=r===select[0]&&c===select[1];
-              const isMatch=v && highlightNum && v===highlightNum;
+              const isSel=(r===select[0]&&c===select[1]);
+              const isMatch=(v && highlightNum && v===highlightNum);
               const clue=original[r][c];
-              const isMistake=mistakes.some(([rr,cc])=>rr===r&&cc===c);
+              const error=mistakes.some(([rr,cc])=>rr===r&&cc===c);
               return(
                 <div key={c} onClick={()=>clickCell(r,c)} style={{
                   ...st.cell,
@@ -183,15 +174,19 @@ export default function Sudoku(){
                   borderBottom:(r+1)%3===0?"3px solid #000":"1px solid #999",
                   background: clue?"#ddd": isMatch?"#cfe8ff" : isSel?"#ffe8a0":"white"
                 }}>
-                  {v?(<div style={{fontSize:22,fontWeight:"bold",position:"relative"}}>
-                    {v}{isMistake && <span style={{position:"absolute",bottom:2,left:2,width:6,height:6,borderRadius:"50%",background:"red"}}/>}
-                  </div>):
-                  [...notes[r][c]].length>0 &&
-                    <div style={st.notesBox}>
-                      {[1,2,3,4,5,6,7,8,9].map(n=>
-                        <span key={n} style={{fontSize:10,opacity:notes[r][c].has(String(n))?1:0}}>{n}</span>
-                      )}
-                    </div>}
+                  {v
+                    ?(<div style={{fontSize:22,fontWeight:"bold",position:"relative"}}>
+                        {v}
+                        {error && <span style={{position:"absolute",bottom:3,right:3,width:6,height:6,background:"red",borderRadius:"50%"}}/>}
+                      </div>)
+                    : [...notes[r][c]].length>0 && (
+                        <div style={st.notesBox}>
+                          {[1,2,3,4,5,6,7,8,9].map(n=>
+                            <span key={n} style={{fontSize:10,opacity:notes[r][c].has(String(n))?1:0}}>{n}</span>
+                          )}
+                        </div>
+                      )
+                  }
                 </div>
               )
             })}
@@ -211,7 +206,8 @@ export default function Sudoku(){
             <p>Time: {fT(timer)}</p>
             <button onClick={()=>setStage("diff")}>Play Again</button>
           </div>
-        </div>)}
+        </div>
+      )}
     </div>
   );
 }
