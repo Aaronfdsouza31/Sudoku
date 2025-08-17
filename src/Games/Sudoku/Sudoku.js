@@ -44,6 +44,8 @@ export default function Sudoku(){
   const [complete,setComplete]=useState(false);
   const [highlightNum,setHighlightNum]=useState(null);
 
+  const [mistakes,setMistakes]=useState([]); // array of [r,c] indexes
+
   function start(d){
     setDiff(d);
     const clues= d==="Easy"?42:d==="Medium"?32:26;
@@ -57,46 +59,71 @@ export default function Sudoku(){
     setTimer(0);
     setComplete(false);
     setHighlightNum(null);
+    setMistakes([]);
     setStage("play");
   }
   function restart(){
     setBoard(original.map(r=>[...r]));
+    setMistakes([]);
     setNotes(emptyNotes());
     setSelect([-1,-1]);
     setPencil(false);
     setTimer(0);
-    setHighlightNum(null);
   }
 
   useEffect(()=>{ if(stage==="play") timerRef.current=setInterval(()=>setTimer(t=>t+1),1000); return()=>clearInterval(timerRef.current); },[stage]);
 
   useEffect(()=>{
-    if(stage==="play" && JSON.stringify(board)===JSON.stringify(solution)){
-      clearInterval(timerRef.current);
-      setComplete(true);
+    if(stage==="play"){
+      if(JSON.stringify(board)===JSON.stringify(solution)){
+        clearInterval(timerRef.current);
+        setComplete(true);
+      }
+      detectMistakes();
     }
   },[board]);
+
+  function detectMistakes(){
+    let m=[];
+    for(let r=0;r<9;r++){
+      for(let c=0;c<9;c++){
+        const v=board[r][c];
+        if(!v)continue;
+        // row/col/box check
+        for(let i=0;i<9;i++){
+          if(i!==c&&board[r][i]===v) m.push([r,c]);
+          if(i!==r&&board[i][c]===v) m.push([r,c]);
+        }
+        const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
+        for(let rr=br;rr<br+3;rr++)for(let cc=bc;cc<bc+3;cc++){
+          if((rr!==r||cc!==c)&&board[rr][cc]===v) m.push([r,c]);
+        }
+      }
+    }
+    setMistakes(m);
+  }
 
   function handleIn(n){
     const[r,c]=select;
     if(r<0||c<0||original[r][c])return;
     if(pencil){
       setNotes(ns=>{
-        const cp=ns.map(r=>r.map(s=>new Set(s)));
+        const cp=ns.map(x=>x.map(s=>new Set(s)));
         if(cp[r][c].has(n)) cp[r][c].delete(n);
         else cp[r][c].add(n);
         return cp;
       });
     }else{
-      setBoard(b=>{ const cp=b.map(r=>r.slice()); cp[r][c]=String(n); return cp;});
-      setNotes(ns=>{ const cp=ns.map(r=>r.map(s=>new Set(s))); cp[r][c].clear();return cp;});
+      setBoard(b=>{ const cp=b.map(rr=>rr.slice()); cp[r][c]=String(n); return cp;});
+      setNotes(ns=>{ const cp=ns.map(x=>x.map(s=>new Set(s))); cp[r][c].clear();return cp;});
     }
+    setHighlightNum(n);
   }
 
   useEffect(()=>{
     function key(e){
       if(stage!=="play")return;
-      if(/[1-9]/.test(e.key)){ handleIn(e.key); setHighlightNum(e.key); }
+      if(/[1-9]/.test(e.key)){ handleIn(e.key); setHighlightNum(e.key);}
       if(["Backspace","Delete","0"].includes(e.key)) handleIn("");
       if(e.key==="p") setPencil(p=>!p);
     }
@@ -145,7 +172,8 @@ export default function Sudoku(){
             {row.map((v,c)=>{
               const isSel=r===select[0]&&c===select[1];
               const clue=original[r][c];
-              const isMatch = v && highlightNum && v===highlightNum;
+              const isMatch=v && highlightNum && v===highlightNum;
+              const isMistake = mistakes.some(([rr,cc])=>rr===r&&cc===c);
               return(
                 <div key={c} onClick={()=>setSelect([r,c])} style={{
                   ...st.cell,
@@ -155,7 +183,14 @@ export default function Sudoku(){
                   borderBottom:(r+1)%3===0?"3px solid #000":"1px solid #999",
                   background: clue?"#ddd": isSel?"#ffe8a0" : isMatch?"#cfe8ff":"white"
                 }}>
-                  {v?(<span style={{fontSize:22,fontWeight:"bold"}}>{v}</span>):
+                  {v?(<div style={{fontSize:22,fontWeight:"bold",position:"relative"}}>
+                      {v}
+                      {isMistake && <span style={{
+                        position:"absolute", right:2, top:2,
+                        width:6,height:6,borderRadius:"50%",background:"red"
+                      }}/>}
+                    </div>
+                  ):
                   [...notes[r][c]].length>0 && (
                     <div style={st.notesBox}>
                       {[1,2,3,4,5,6,7,8,9].map(n=>
