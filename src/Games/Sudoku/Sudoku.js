@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 const emptyGrid = () => Array(9).fill(null).map(() => Array(9).fill(""));
 const emptyNotes = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => new Set()));
 
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;}
 function ok(g,r,c,n){
   n=String(n);
   for(let i=0;i<9;i++) if(g[r][i]===n||g[i][c]===n) return false;
@@ -43,7 +43,31 @@ export default function Sudoku(){
   const [timer,setTimer]=useState(0);
   const timerRef=useRef();
   const [complete,setComplete]=useState(false);
-  const [scores,setScores]=useState(JSON.parse(localStorage.getItem("hs")||"{}"));
+
+  // generate once we hit play
+  function start(d){
+    setDiff(d);
+    const clues= d==="Easy"?42:d==="Medium"?32:26;
+    const [pz,sol]=generate(clues);
+    setBoard(pz.map(r=>[...r]));
+    setOriginal(pz.map(r=>[...r]));
+    setSolution(sol);
+    setNotes(emptyNotes());
+    setSelect([-1,-1]);
+    setPencil(false);
+    setTimer(0);
+    setComplete(false);
+    setStage("play");
+  }
+
+  // restart same puzzle
+  function restart(){
+    setBoard(original.map(r=>[...r]));
+    setNotes(emptyNotes());
+    setSelect([-1,-1]);
+    setPencil(false);
+    setTimer(0);
+  }
 
   // timer
   useEffect(()=>{
@@ -60,27 +84,9 @@ export default function Sudoku(){
       if(done){
         clearInterval(timerRef.current);
         setComplete(true);
-        const list=(scores[diff]||[]);
-        const sc=[...list,{ name,time:timer }].sort((a,b)=>a.time-b.time).slice(0,5);
-        localStorage.setItem("hs",JSON.stringify({...scores,[diff]:sc}));
       }
     }
   },[board]);
-
-  function start(d){
-    setDiff(d);
-    const clues= d==="Easy"?42:d==="Medium"?32:26;
-    const [pz,sol]=generate(clues);
-    setBoard(pz.map(r=>[...r]));
-    setOriginal(pz.map(r=>[...r]));
-    setSolution(sol);
-    setNotes(emptyNotes());
-    setSelect([-1,-1]);
-    setPencil(false);
-    setTimer(0);
-    setComplete(false);
-    setStage("play");
-  }
 
   function handleIn(n){
     const[r,c]=select;
@@ -100,7 +106,7 @@ export default function Sudoku(){
       });
       setNotes(ns=>{
         const cp=ns.map(r=>r.map(s=>new Set(s)));
-        cp[r][c].clear(); return cp;
+        cp[r][c].clear();return cp;
       });
     }
   }
@@ -111,7 +117,7 @@ export default function Sudoku(){
       if(stage!=="play") return;
       if(/[1-9]/.test(e.key)) handleIn(e.key);
       if(["Backspace","Delete","0"].includes(e.key)) handleIn("");
-      if(e.key==="p") setPencil(p=>!p);
+      if(e.key==="p") setPencil(p=>!pencil);
     }
     window.addEventListener("keydown",key);
     return()=>window.removeEventListener("keydown",key);
@@ -139,6 +145,7 @@ export default function Sudoku(){
       </div>
     );
   }
+
   return(
     <div style={st.wrap}>
       <h3>{name} | {diff} | {fT(timer)}</h3>
@@ -174,7 +181,14 @@ export default function Sudoku(){
           </div>
         ))}
       </div>
-      <button onClick={()=>setPencil(p=>!p)} style={{marginTop:10}}>{pencil?"Exit Pencil":"Enter Pencil"}</button>
+      <button onClick={()=>setPencil(!pencil)} style={{marginTop:10}}>{pencil?"Exit Pencil":"Enter Pencil"}</button>
+
+      {/* New Buttons */}
+      <div style={{marginTop:10}}>
+        <button onClick={()=>setStage("diff")}>Back</button>{" "}
+        <button onClick={restart}>Restart</button>{" "}
+        <button onClick={()=>start(diff)}>New Game</button>
+      </div>
 
       {complete && (
         <div style={st.complete}>
