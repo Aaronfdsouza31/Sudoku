@@ -56,15 +56,15 @@ export default function Sudoku(){
     setMistakes([]);
     setSelect([-1,-1]);
     setPencil(false);
-    setTimer(0);
     setHighlightNum(null);
+    setTimer(0);
     setComplete(false);
     setStage("play");
   }
   function restart(){
     setBoard(original.map(r=>[...r]));
-    setMistakes([]);
     setNotes(emptyNotes());
+    setMistakes([]);
     setSelect([-1,-1]);
     setPencil(false);
     setTimer(0);
@@ -163,8 +163,8 @@ export default function Sudoku(){
       <h3>{name} | {diff} | {fT(timer)}</h3>
       <div style={st.nums}>
         {Array.from({length:9},(_,i)=>(<div key={i+1}
-        onClick={()=>{setHighlightNum(String(i+1)); setSelect([-1,-1]);}}
-        style={{...st.num,background: highlightNum===String(i+1)?"#aeddff":"#f4f4f4"}}>{i+1}</div>))}
+          onClick={()=>{setHighlightNum(String(i+1)); setSelect([-1,-1]);}}
+          style={{...st.num,background: highlightNum===String(i+1)?"#aeddff":"#f4f4f4"}}>{i+1}</div>))}
       </div>
       <div style={st.board}>
         {board.map((row,r)=>(
@@ -181,10 +181,10 @@ export default function Sudoku(){
                   borderLeft:c%3===0?"3px solid #000":"1px solid #999",
                   borderRight:(c+1)%3===0?"3px solid #000":"1px solid #999",
                   borderBottom:(r+1)%3===0?"3px solid #000":"1px solid #999",
-                  background: clue?"#ddd": isSel?"#ffe8a0" : isMatch?"#cfe8ff":"white"
+                  background: clue?"#ddd": isMatch?"#cfe8ff" : isSel?"#ffe8a0":"white"
                 }}>
                   {v?(<div style={{fontSize:22,fontWeight:"bold",position:"relative"}}>
-                    {v}{isMistake && <span style={{position:"absolute",top:2,right:2,width:6,height:6,background:"red",borderRadius:"50%"}}/>}
+                    {v}{isMistake && <span style={{position:"absolute",bottom:2,left:2,width:6,height:6,borderRadius:"50%",background:"red"}}/>}
                   </div>):
                   [...notes[r][c]].length>0 &&
                     <div style={st.notesBox}>
