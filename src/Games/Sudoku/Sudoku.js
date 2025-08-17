@@ -56,22 +56,23 @@ export default function Sudoku(){
     setMistakes([]);
     setSelect([-1,-1]);
     setPencil(false);
-    setHighlightNum(null);
     setTimer(0);
+    setHighlightNum(null);
     setComplete(false);
     setStage("play");
   }
   function restart(){
     setBoard(original.map(r=>[...r]));
+    setMistakes([]);
     setNotes(emptyNotes());
     setSelect([-1,-1]);
-    setHighlightNum(null);
     setPencil(false);
     setTimer(0);
-    setMistakes([]);
+    setHighlightNum(null);
   }
 
   useEffect(()=>{ if(stage==="play")timerRef.current=setInterval(()=>setTimer(t=>t+1),1000); return()=>clearInterval(timerRef.current);},[stage]);
+
   useEffect(()=>{
     if(stage==="play" && JSON.stringify(board)===JSON.stringify(solution)){
       clearInterval(timerRef.current);
@@ -161,15 +162,16 @@ export default function Sudoku(){
     <div style={st.wrap}>
       <h3>{name} | {diff} | {fT(timer)}</h3>
       <div style={st.nums}>
-        {Array.from({length:9},(_,i)=>(<div key={i+1} onClick={()=>setHighlightNum(String(i+1))}
-       style={{...st.num,background: highlightNum===String(i+1)?"#aeddff":"#f4f4f4"}}>{i+1}</div>))}
+        {Array.from({length:9},(_,i)=>(<div key={i+1}
+        onClick={()=>{setHighlightNum(String(i+1)); setSelect([-1,-1]);}}
+        style={{...st.num,background: highlightNum===String(i+1)?"#aeddff":"#f4f4f4"}}>{i+1}</div>))}
       </div>
       <div style={st.board}>
         {board.map((row,r)=>(
           <div key={r} style={st.row}>
             {row.map((v,c)=>{
-              const isSel = r===select[0]&&c===select[1];
-              const isMatch = v && highlightNum && v===highlightNum;
+              const isSel=r===select[0]&&c===select[1];
+              const isMatch=v && highlightNum && v===highlightNum;
               const clue=original[r][c];
               const isMistake=mistakes.some(([rr,cc])=>rr===r&&cc===c);
               return(
@@ -179,7 +181,7 @@ export default function Sudoku(){
                   borderLeft:c%3===0?"3px solid #000":"1px solid #999",
                   borderRight:(c+1)%3===0?"3px solid #000":"1px solid #999",
                   borderBottom:(r+1)%3===0?"3px solid #000":"1px solid #999",
-                  background: clue?"#ddd":isSel?"#ffe8a0":isMatch?"#cfe8ff":"white"
+                  background: clue?"#ddd": isSel?"#ffe8a0" : isMatch?"#cfe8ff":"white"
                 }}>
                   {v?(<div style={{fontSize:22,fontWeight:"bold",position:"relative"}}>
                     {v}{isMistake && <span style={{position:"absolute",top:2,right:2,width:6,height:6,background:"red",borderRadius:"50%"}}/>}
