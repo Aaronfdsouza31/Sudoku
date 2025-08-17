@@ -1,86 +1,96 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const emptyGrid = () => Array(9).fill(0).map(() => Array(9).fill(""));
-const emptyNotes = () => Array(9).fill(0).map(() => Array(9).fill().map(() => new Set()));
+// Helpers
+const emptyGrid = () => Array(9).fill(null).map(() => Array(9).fill(""));
+const emptyNotes = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => new Set()));
 
-function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]]=[a[j],a[i]];} return a;}
-function isOK(grid,r,c,n){
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function ok(g,r,c,n){
   n=String(n);
-  for(let i=0;i<9;i++){ if(grid[r][i]===n||grid[i][c]===n) return false;}
+  for(let i=0;i<9;i++) if(g[r][i]===n||g[i][c]===n) return false;
   const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
-  for(let rr=br;rr<br+3;rr++)for(let cc=bc;cc<bc+3;cc++) if(grid[rr][cc]===n) return false;
+  for(let rr=br;rr<br+3;rr++) for(let cc=bc;cc<bc+3;cc++) if(g[rr][cc]===n) return false;
   return true;
 }
-function generatePuzzle(clueCount){
-  const grid=emptyGrid();
-  function fill(idx=0){
-    if(idx===81) return true;
-    const r=Math.floor(idx/9), c=idx%9;
-    if(grid[r][c]) return fill(idx+1);
+function generate(clues){
+  const g=emptyGrid();
+  function fill(i=0){
+    if(i===81) return true;
+    const r=Math.floor(i/9), c=i%9;
+    if(g[r][c]) return fill(i+1);
     for(const n of shuffle([1,2,3,4,5,6,7,8,9])){
-      if(isOK(grid,r,c,n)){ grid[r][c]=String(n); if(fill(idx+1)) return true; grid[r][c]="";}
+      if(ok(g,r,c,n)){ g[r][c]=String(n); if(fill(i+1)) return true; g[r][c]=""; }
     }
     return false;
   }
   fill();
-  let puzzle=grid.map(r=>[...r]);
-  let blanks=81-clueCount;
-  while(blanks>0){
-    const r=Math.floor(Math.random()*9), c=Math.floor(Math.random()*9);
-    if(puzzle[r][c]!==""){ puzzle[r][c]=""; blanks--; }
-  }
-  return [puzzle,grid];
+  let puz=g.map(r=>[...r]);
+  let rm=81-clues;
+  while(rm>0){ const r=Math.floor(Math.random()*9),c=Math.floor(Math.random()*9); if(puz[r][c]!==""){puz[r][c]="";rm--;} }
+  return [puz,g];
 }
 
 export default function Sudoku(){
-  const [screen,setScreen]=useState("init");
-  const [player,setPlayer]=useState("");
+  const [stage,setStage]=useState("name");
   const [name,setName]=useState("");
-  const [difficulty,setDifficulty]=useState("Easy");
+  const [diff,setDiff]=useState("Easy");
   const [board,setBoard]=useState(emptyGrid());
+  const [original,setOriginal]=useState(emptyGrid());
   const [solution,setSolution]=useState(emptyGrid());
   const [notes,setNotes]=useState(emptyNotes());
-  const [original,setOriginal]=useState(emptyGrid());
-  const [selected,setSelected]=useState([-1,-1]);
+  const [select,setSelect]=useState([-1,-1]);
   const [pencil,setPencil]=useState(false);
   const [timer,setTimer]=useState(0);
   const timerRef=useRef();
+  const [complete,setComplete]=useState(false);
+  const [scores,setScores]=useState(JSON.parse(localStorage.getItem("hs")||"{}"));
 
+  // timer
   useEffect(()=>{
-    if(screen==="play"){ timerRef.current=setInterval(()=>setTimer(t=>t+1),1000); }
+    if(stage==="play"){
+      timerRef.current=setInterval(()=>setTimer(t=>t+1),1000);
+    }
     return()=>clearInterval(timerRef.current);
-  },[screen]);
+  },[stage]);
 
+  // win detect
   useEffect(()=>{
-    if(screen==="play" && isFinished()){
-      clearInterval(timerRef.current);
-      setTimeout(()=>setScreen("complete"),300);
+    if(stage==="play"){
+      const done=JSON.stringify(board)===JSON.stringify(solution);
+      if(done){
+        clearInterval(timerRef.current);
+        setComplete(true);
+        const list=(scores[diff]||[]);
+        const sc=[...list,{ name,time:timer }].sort((a,b)=>a.time-b.time).slice(0,5);
+        localStorage.setItem("hs",JSON.stringify({...scores,[diff]:sc}));
+      }
     }
   },[board]);
 
-  function startGame(diff){
-    setDifficulty(diff);
-    const clues= diff==="Easy"?42: diff==="Medium"?32:25;
-    const [puz,sol]=generatePuzzle(clues);
-    setOriginal(puz.map(r=>[...r]));
-    setBoard(puz.map(r=>[...r]));
+  function start(d){
+    setDiff(d);
+    const clues= d==="Easy"?42:d==="Medium"?32:26;
+    const [pz,sol]=generate(clues);
+    setBoard(pz.map(r=>[...r]));
+    setOriginal(pz.map(r=>[...r]));
     setSolution(sol);
     setNotes(emptyNotes());
-    setSelected([-1,-1]);
+    setSelect([-1,-1]);
     setPencil(false);
     setTimer(0);
-    setScreen("play");
+    setComplete(false);
+    setStage("play");
   }
 
-  function handleInput(n){
-    const[r,c]=selected;
-    if(r<0||c<0||original[r][c]) return;
+  function handleIn(n){
+    const[r,c]=select;
+    if(r<0||c<0||original[r][c])return;
     if(pencil){
       setNotes(ns=>{
-        const copy=ns.map(r=>r.map(s=>new Set(s)));
-        if(copy[r][c].has(n)) copy[r][c].delete(n);
-        else copy[r][c].add(n);
-        return copy;
+        const cp=ns.map(r=>r.map(s=>new Set(s)));
+        if(cp[r][c].has(n)) cp[r][c].delete(n);
+        else cp[r][c].add(n);
+        return cp;
       });
     }else{
       setBoard(b=>{
@@ -90,123 +100,103 @@ export default function Sudoku(){
       });
       setNotes(ns=>{
         const cp=ns.map(r=>r.map(s=>new Set(s)));
-        cp[r][c].clear();
-        return cp;
+        cp[r][c].clear(); return cp;
       });
     }
   }
 
-  function renderNotes(r,c){
-    const set=notes[r][c];
-    return(
-      <div style={{
-        display:"grid", gridTemplateColumns:"repeat(3,1fr)",
-        fontSize:9, lineHeight:"10px", color:"#555"
-      }}>
-        {Array.from({length:9},(_,i)=>{const v=i+1;return(
-          <div key={v} style={{opacity:set.has(String(v))?1:0.2}}>
-            {v}
-          </div>
-        );})}
-      </div>
-    );
-  }
-
-  function isFinished(){
-    return JSON.stringify(board)===JSON.stringify(solution);
-  }
-
-  function formatTime(t){ return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;}
-
-  // Keyboard support
+  // keyboard
   useEffect(()=>{
-    function down(e){
-      if(screen!=="play")return;
-      if(/[1-9]/.test(e.key)) handleInput(e.key);
-      if(["Backspace","Delete","0"].includes(e.key)) handleInput("");
+    function key(e){
+      if(stage!=="play") return;
+      if(/[1-9]/.test(e.key)) handleIn(e.key);
+      if(["Backspace","Delete","0"].includes(e.key)) handleIn("");
       if(e.key==="p") setPencil(p=>!p);
     }
-    window.addEventListener("keydown",down);
-    return()=>window.removeEventListener("keydown",down);
+    window.addEventListener("keydown",key);
+    return()=>window.removeEventListener("keydown",key);
   });
 
-  if(screen==="init"){
+  function fT(t){return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;}
+
+  if(stage==="name"){
     return(
-      <div style={style.wrap}>
+      <div style={st.wrap}>
         <h2>Welcome to Sudoku</h2>
-        <input value={player} onChange={e=>setPlayer(e.target.value)} placeholder="Enter name" style={style.input}/>
-        <button disabled={!player} onClick={()=>{setName(player);setScreen("select");}}>Next</button>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Enter name" style={st.input}/>
+        <button disabled={!name} onClick={()=>setStage("diff")}>Next</button>
       </div>
     );
   }
-
-  if(screen==="select"){
+  if(stage==="diff"){
     return(
-      <div style={style.wrap}>
+      <div style={st.wrap}>
         <h3>Hello {name}</h3>
-        <p>Select Difficulty:</p>
-        <button onClick={()=>startGame("Easy")}>Easy</button>
-        <button onClick={()=>startGame("Medium")}>Medium</button>
-        <button onClick={()=>startGame("Hard")}>Hard</button>
+        <p>Select Difficulty</p>
+        <button onClick={()=>start("Easy")}>Easy</button>
+        <button onClick={()=>start("Medium")}>Medium</button>
+        <button onClick={()=>start("Hard")}>Hard</button>
       </div>
     );
   }
-
-  if(screen==="complete"){
-    return(
-      <div style={style.wrap}>
-        <h2>🎉 Completed!</h2>
-        <p>Time: {formatTime(timer)}</p>
-        <button onClick={()=>setScreen("select")}>Play Again</button>
-      </div>
-    );
-  }
-
   return(
-    <div style={style.wrap}>
-      <h3>Name: {name} | {difficulty} | {formatTime(timer)}</h3>
-      <div style={style.numpad}>
-        {Array.from({length:9},(_,i)=>(i+1)).map(n=>
-          <div key={n} style={style.numBtn} onClick={()=>handleInput(n)}>{n}</div>
-        )}
+    <div style={st.wrap}>
+      <h3>{name} | {diff} | {fT(timer)}</h3>
+      <div style={st.nums}>
+        {Array.from({length:9},(_,i)=>(<div key={i+1} onClick={()=>handleIn(String(i+1))} style={st.num}>{i+1}</div>))}
       </div>
-      <table style={style.table}>
-        <tbody>
+      <div style={st.board}>
         {board.map((row,r)=>(
-          <tr key={r}>
-            {row.map((val,c)=>{
-              const isSelected=r===selected[0]&&c===selected[1];
+          <div key={r} style={st.row}>
+            {row.map((v,c)=>{
+              const isSel=r===select[0]&&c===select[1];
               const clue=original[r][c];
               return(
-                <td key={c}
-                  onClick={()=>setSelected([r,c])}
-                  style={{
-                    ...style.cell,
-                    background:clue?"#dedede":isSelected?"#ffc26d": "white",
-                    borderTop: r%3===0? "3px solid #000":"1px solid #999",
-                    borderLeft:c%3===0? "3px solid #000":"1px solid #999",
-                    borderRight:(c+1)%3===0? "3px solid #000":"1px solid #999",
-                    borderBottom:(r+1)%3===0? "3px solid #000":"1px solid #999"
-                  }}>
-                  <span style={{visibility: val?"visible":"hidden", fontSize:20}}>{val}</span>
-                  {!val && renderNotes(r,c)}
-                </td>
+                <div key={c} onClick={()=>setSelect([r,c])} style={{
+                  ...st.cell,
+                  borderTop: r%3===0?"3px solid #000":"1px solid #999",
+                  borderLeft:c%3===0?"3px solid #000":"1px solid #999",
+                  borderRight:(c+1)%3===0?"3px solid #000":"1px solid #999",
+                  borderBottom:(r+1)%3===0?"3px solid #000":"1px solid #999",
+                  background: clue?"#ddd":isSel?"#ffe8a0":"white"
+                }}>
+                  {v?(<span style={{fontSize:22,fontWeight:"bold"}}>{v}</span>):
+                  [...notes[r][c]].length>0 && (
+                    <div style={st.notesBox}>
+                      {[1,2,3,4,5,6,7,8,9].map(n=>
+                        <span key={n} style={{fontSize:10,opacity:notes[r][c].has(String(n))?1:0}}>{n}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               )
             })}
-          </tr>
+          </div>
         ))}
-        </tbody>
-      </table>
-      <button style={{marginTop:10}} onClick={()=>setPencil(!pencil)}>{pencil?"Exit Pencil":"Enter Pencil"}</button>
+      </div>
+      <button onClick={()=>setPencil(p=>!p)} style={{marginTop:10}}>{pencil?"Exit Pencil":"Enter Pencil"}</button>
+
+      {complete && (
+        <div style={st.complete}>
+          <div style={{background:"white",padding:30,borderRadius:8,textAlign:"center"}}>
+            <h2>🎉 Completed!</h2>
+            <p>Time: {fT(timer)}</p>
+            <button onClick={()=>setStage("diff")}>Play Again</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-const style={
+const st={
   wrap:{maxWidth:450,margin:"20px auto",textAlign:"center",fontFamily:"Arial"},
   input:{padding:8,fontSize:16,width:"80%",marginBottom:12},
-  table:{width:"100%",borderCollapse:"collapse"},
-  cell:{height:0,paddingBottom:"11%",position:"relative",textAlign:"center",cursor:"pointer"},
-  numpad:{display:"flex",justifyContent:"center",gap:4,margin:"10px 0"},
-  numBtn:{border:"1px solid #999",padding:"7px 11px",borderRadius:6,cursor:"pointer",userSelect:"none"}
+  nums:{display:"flex",justifyContent:"center",gap:6,marginBottom:12},
+  num:{padding:"7px 11px",background:"#f4f4f4",border:"1px solid #999",borderRadius:6,cursor:"pointer"},
+  board:{},
+  row:{display:"flex"},
+  cell:{width:"50px",height:"50px",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",cursor:"pointer"},
+  notesBox:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",width:"100%",height:"100%",alignContent:"center",justifyItems:"center",color:"#666"},
+  complete:{position:"fixed",left:0,right:0,top:0,bottom:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}
 };
